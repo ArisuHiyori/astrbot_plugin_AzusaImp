@@ -1,5 +1,5 @@
 name: AzusaImp # 这是你的插件的唯一识别名。
 desc: 梓的用户印象插件 # 插件简短描述
-version: v0.0.7j # 插件版本号。格式：v1.1.1 或者 v1.1
+version: v0.0.7k # 插件版本号。格式：v1.1.1 或者 v1.1
 author: 有栖日和 # 作者
 repo: https://github.com/Angus-YZH/astrbot_plugin_AzusaImp # 插件的仓库地址
