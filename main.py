@@ -353,9 +353,19 @@ class AzusaImp(Star):
             if qq_number not in all_user_info:
                 user_info = await self.get_qq_user_info(event, qq_number, update_user_info=True)
                 all_user_info[qq_number] = user_info
-                self.save_user_info(all_user_info)
                 logger.info(f"已记录新用户基本信息: QQ{qq_number}")
-            
+            else:
+                # 如果用户基本信息存在，则更新基本信息
+                updated_info = await self.get_qq_user_info(event, qq_number, update_user_info=True)
+                # 保留旧的印象
+                for key in ['address', 'relationship', 'impression', 'attitude', 'interest']:
+                    if key in all_user_info[qq_number]:
+                        updated_info[key]  = all_user_info[qq_number][key]
+                    all_user_info[qq_number] = updated_info
+                logger.info(f"更新了{qq_number}的基本信息")
+                
+            self.save_user_info(all_user_info)
+
             # 如果是群聊，获取并保存群成员信息
             if is_group:
                 # 确保群ID键存在
