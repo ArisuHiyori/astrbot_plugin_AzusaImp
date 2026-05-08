@@ -293,45 +293,6 @@ class AzusaImp(Star):
         }
         return gender_map.get(gender, '未知')
 
-    def format_user_info_for_prompt(self, user_info: Dict[str, Any], group_info: Dict[str, Any]) -> str:
-        """将用户信息格式化为提示词文本"""
-        prompt_parts = []
-        is_group = bool(group_info)
-        
-        # 基础信息
-        prompt_parts.append(f"用户QQ号: {user_info.get('qq_number', '未知')}")
-        prompt_parts.append(f"昵称: {user_info.get('nickname', '未知')}")
-        
-        # 个人信息
-        if user_info.get('gender') != '未知':
-            prompt_parts.append(f"性别: {user_info.get('gender')}")
-        
-        # 生日信息 - 总是显示
-        birthday = user_info.get('birthday', '未知')
-        prompt_parts.append(f"生日: {birthday}")
-        
-        # 年龄信息
-        if birthday != '未知':
-            age = self.calculate_age(birthday)
-            if age > 0:
-                prompt_parts.append(f"年龄: {age}岁")
-        
-        # 群聊额外信息 - 从 group_info 中获取
-        if is_group:
-            display_name = group_info.get('display_name')
-            if display_name:
-                prompt_parts.append(f"群昵称: {display_name}")
-            
-            group_role = group_info.get('group_role')
-            if group_role:
-                prompt_parts.append(f"群身份: {self.get_group_role_text(group_role)}")
-            
-            group_title = group_info.get('group_title', '')
-            if group_title and group_title != '无':
-                prompt_parts.append(f"群头衔: {group_title}")
-    
-        return "，".join(prompt_parts)
-    
     @filter.on_llm_request()
     async def on_llm_request_hook(self, event: AstrMessageEvent, req: ProviderRequest):
         """LLM请求时的钩子，用于记录用户信息并添加到提示词"""
@@ -523,9 +484,14 @@ class AzusaImp(Star):
             all_user_info[qq_number]['nickname'] = new_nickname
             if new_address:
                 all_user_info[qq_number]['address'] = new_address
-            
+            else:
+                # 如果称呼是基于旧昵称自动生成的，则同步更新
+                old_address = all_user_info[qq_number].get('address', '')
+                if old_address == f"{old_nickname}同学" or not old_address:
+                    all_user_info[qq_number]['address'] = f"{new_nickname}同学"
+
             self.save_user_info(all_user_info)
-            
+
             logger.info(f"用户 {qq_number} 更新昵称: {old_nickname} -> {new_nickname}")
             yield event.plain_result(f"已更新您的昵称: {new_nickname}，称呼：{all_user_info[qq_number]['address']}")
             
