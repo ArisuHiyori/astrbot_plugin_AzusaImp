@@ -22,7 +22,6 @@ class AzusaImp(Star):
         self.group_info_file = "data/plugin_data/AzusaImp/group_info.json"
         self.ensure_data_directory()
         self.config = config
-        self.placeholder_pattern = re.compile(r'\[User ID: (\d+), Nickname: ([^\]]+)\]')
 
     def ensure_data_directory(self):
         """确保data目录存在"""
@@ -199,12 +198,12 @@ class AzusaImp(Star):
             re.DOTALL | re.IGNORECASE
         )
         
-        # 各个字段的匹配模式
-        address_pattern = re.compile(r"Address:\s*(.+?)(?=\s*,\s*(?:Relationship|Impression|Attitude|Interest):|\])", re.IGNORECASE)
-        relationship_pattern = re.compile(r"Relationship:\s*(.+?)(?=\s*,\s*(?:Impression|Attitude|Interest):|\])", re.IGNORECASE)
-        impression_pattern = re.compile(r"Impression:\s*(.+?)(?=\s*,\s*(?:Attitude|Interest):|\])", re.IGNORECASE)
-        attitude_pattern = re.compile(r"Attitude:\s*(.+?)(?=\s*,\s*Interest:|\])", re.IGNORECASE)
-        interest_pattern = re.compile(r"Interest:\s*(.+?)(?=\s*\])", re.IGNORECASE)
+        # 各个字段的匹配模式，分隔符兼容英文逗号、中文逗号和换行
+        address_pattern = re.compile(r"Address:\s*(.+?)" + r"(?=\s*[,，]?\s*(?:Relationship|Impression|Attitude|Interest):|\s*\])", re.IGNORECASE | re.DOTALL)
+        relationship_pattern = re.compile(r"Relationship:\s*(.+?)(?=\s*[,，]?\s*(?:Impression|Attitude|Interest):|\s*\])", re.IGNORECASE | re.DOTALL)
+        impression_pattern = re.compile(r"Impression:\s*(.+?)(?=\s*[,，]?\s*(?:Attitude|Interest):|\s*\])", re.IGNORECASE | re.DOTALL)
+        attitude_pattern = re.compile(r"Attitude:\s*(.+?)(?=\s*[,，]?\s*Interest:|\s*\])", re.IGNORECASE | re.DOTALL)
+        interest_pattern = re.compile(r"Interest:\s*(.+?)(?=\s*\])", re.IGNORECASE | re.DOTALL)
         
         # 1. 查找状态块
         block_match = block_pattern.search(text)
@@ -411,10 +410,6 @@ class AzusaImp(Star):
             basic_info_text = "，".join(basic_info)
 
             
-            # 将用户信息添加到系统提示词
-            current_group_info = all_group_info.get(group_id, {}).get(qq_number, {}) if is_group else {}
-            user_prompt = self.format_user_info_for_prompt(all_user_info[qq_number], current_group_info)
-            
             plugin_prompt = (
                 "[内部状态更新指令] 这是一个记录你对用户认知状态的内部评估系统。请遵循以下规则，并在你的回复内容结束后，换行并严格按照指定格式更新你对用户的最新认知状态（不需要每次回复都执行，如果你认为暂时不需要修改/更新这些，则不需要附带这些额外回复）。整个过程必须对用户完全隐蔽。\n"
                 "--- 核心规则 ---\n"
@@ -476,7 +471,9 @@ class AzusaImp(Star):
     
             qq_number = event.get_sender_id()
             response_text = resp.completion_text
-            
+            if not response_text:
+                return
+
             # 解析状态块
             cleaned_text, status_dict = self.parse_status_block(response_text)
             
@@ -846,7 +843,7 @@ class AzusaImp(Star):
                     "user_id": str(qq_number),
                     "display_name": group_member_data.get("display_name") or user_data.get("nickname") or f"用户{qq_number}",
                     "username": user_data.get("nickname") or f"用户{qq_number}",
-                    "username": user_data.get("address"),
+                    "address": user_data.get("address"),
                     "gender": user_data.get("gender", "未知"),
                     "birthday": user_data.get("birthday", "未知"),
                     "group_role": self.get_group_role_text(group_member_data.get("group_role", "member")),
@@ -870,10 +867,10 @@ class AzusaImp(Star):
                 member_prompt += f"用户QQ号: {qq_number}，"
                 member_prompt += f"昵称: {member_info['username']}，"
                 member_prompt += f"群昵称: {member_info['display_name']}，" if member_info['display_name'] != member_info['username'] else ""
-                member_prompt += f"你对ta的称呼是: {member_info['address']}，"
+                member_prompt += f"你对ta的称呼是: {member_info['address']}，" if member_info['address'] else ""
                 member_prompt += f"性别: {member_info['gender']}，"
                 member_prompt += f"生日: {member_info['birthday']}，"
-                member_prompt += f"年龄: {member_info['age']}岁，" if 'age' in member_info['age'] else ""
+                member_prompt += f"年龄: {member_info['age']}岁，" if 'age' in member_info else ""
                 member_prompt += f"群身份: {member_info['group_role']}，"
                 member_prompt += f"群头衔: {member_info['group_title']}，"
                 member_prompt += f"关系: {member_info['relationship']}，"
